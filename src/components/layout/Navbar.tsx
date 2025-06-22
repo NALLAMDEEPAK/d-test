@@ -1,15 +1,22 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Code2, Users, User, LogOut, Moon, Sun } from 'lucide-react';
+import { Code2, Users, User, LogOut, Moon, Sun, Mail, Code } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
+import Button from '../ui/Button';
 
 const Navbar: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
+  const { user, isAuthenticated, logout } = useAuth();
   const location = useLocation();
 
   const isActive = (path: string) => {
     return location.pathname === path;
   };
+
+  if (!isAuthenticated) {
+    return null; // Don't show navbar on login page
+  }
 
   return (
     <nav className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10 transition-colors duration-200">
@@ -41,7 +48,30 @@ const Navbar: React.FC = () => {
                   : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
+              <Users className="h-4 w-4 mr-1" />
               Mock Arena
+            </Link>
+            <Link
+              to="/code-editor"
+              className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                isActive('/code-editor') 
+                  ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400' 
+                  : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <Code className="h-4 w-4 mr-1" />
+              Code Editor
+            </Link>
+            <Link
+              to="/email-invite"
+              className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                isActive('/email-invite') 
+                  ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400' 
+                  : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <Mail className="h-4 w-4 mr-1" />
+              Send Invite
             </Link>
             <Link
               to="/profile"
@@ -56,6 +86,21 @@ const Navbar: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-4">
+            {user && (
+              <div className="hidden md:flex items-center space-x-3">
+                {user.picture && (
+                  <img
+                    src={user.picture}
+                    alt={user.name}
+                    className="h-8 w-8 rounded-full"
+                  />
+                )}
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {user.name}
+                </span>
+              </div>
+            )}
+            
             <button
               onClick={toggleTheme}
               className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200"
@@ -63,12 +108,16 @@ const Navbar: React.FC = () => {
             >
               {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <button
-              className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200"
+            
+            <Button
+              variant="ghost"
+              onClick={logout}
+              icon={<LogOut size={16} />}
+              className="text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400"
               aria-label="Logout"
             >
-              <LogOut size={20} />
-            </button>
+              <span className="hidden md:inline">Logout</span>
+            </Button>
           </div>
         </div>
       </div>

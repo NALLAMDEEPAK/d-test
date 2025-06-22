@@ -1,117 +1,106 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, LogIn } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Code2, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/Card';
-import Button from '../components/ui/Button';
+import GoogleSignIn from '../components/auth/GoogleSignIn';
+import { useAuth } from '../contexts/AuthContext';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // Add your login logic here
-    console.log('Login:', formData);
-    navigate('/');
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      const from = location.state?.from?.pathname || '/';
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, navigate, location]);
+
+  // Handle OAuth callback errors
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const errorMessage = urlParams.get('message');
+    if (errorMessage) {
+      setError(decodeURIComponent(errorMessage));
+    }
+  }, [location]);
+
+  const handleGoogleSuccess = () => {
+    const from = location.state?.from?.pathname || '/';
+    navigate(from, { replace: true });
+  };
+
+  const handleGoogleError = (errorMessage: string) => {
+    setError(errorMessage);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="max-w-md w-full">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 py-12 px-4 sm:px-6 lg:px-8">
+      <Card className="max-w-md w-full shadow-xl border-0">
         <CardContent className="p-8">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome back</h2>
+            <div className="flex justify-center mb-4">
+              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-3 rounded-full">
+                <Code2 className="h-8 w-8 text-white" />
+              </div>
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome to CodePro</h2>
             <p className="mt-2 text-gray-600 dark:text-gray-400">
-              Sign in to your account to continue
+              Sign in to access your coding interview platform
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Email address
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white sm:text-sm"
-                placeholder="you@example.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white sm:text-sm pr-10"
-                  placeholder="••••••••"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-400" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-gray-400" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
               <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                  Remember me
-                </label>
+                <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mr-2" />
+                <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
               </div>
+            </div>
+          )}
 
-              <div className="text-sm">
-                <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">
-                  Forgot password?
-                </a>
+          <div className="space-y-6">
+            <GoogleSignIn
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+            />
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                  Secure OAuth Authentication
+                </span>
               </div>
             </div>
 
-            <Button
-              type="submit"
-              variant="primary"
-              className="w-full"
-              icon={<LogIn size={16} />}
-            >
-              Sign in
-            </Button>
-          </form>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
+                🚀 What you'll get access to:
+              </h3>
+              <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                <li>• Interactive code editor with multiple languages</li>
+                <li>• Mock interview sessions with video chat</li>
+                <li>• Send email invitations to practice partners</li>
+                <li>• Track your progress and interview history</li>
+              </ul>
+            </div>
+          </div>
 
-          <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
-            Don't have an account?{' '}
-            <Link
-              to="/signup"
-              className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
-            >
-              Sign up
-            </Link>
+          <p className="mt-8 text-center text-sm text-gray-600 dark:text-gray-400">
+            By signing in, you agree to our{' '}
+            <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">
+              Terms of Service
+            </a>{' '}
+            and{' '}
+            <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">
+              Privacy Policy
+            </a>
           </p>
         </CardContent>
       </Card>
