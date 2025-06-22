@@ -31,6 +31,23 @@ export class AuthController {
     }
   }
 
+  @Post('google/verify')
+  async googleVerify(@Body() body: { credential: string }) {
+    try {
+      const result = await this.authService.verifyGoogleCredential(body.credential);
+      return {
+        success: true,
+        access_token: result.access_token,
+        user: result.user,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Authentication failed',
+      };
+    }
+  }
+
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   async getProfile(@GetUser() user: User) {
