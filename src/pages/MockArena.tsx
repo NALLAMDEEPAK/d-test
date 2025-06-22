@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Mail, Calendar, Clock, User, BookOpen, Send } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import InterviewCard from '../components/mock/InterviewCard';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
-import { mockInterviews } from '../data/mockData';
-import { Interview } from '../types';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { interviewsAPI, type Interview, type CreateInterviewRequest } from '../services/api';
 
 const MockArena: React.FC = () => {
   const navigate = useNavigate();
-  const [interviews, setInterviews] = useState<Interview[]>(mockInterviews);
+  const [interviews, setInterviews] = useState<Interview[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showNewInterviewForm, setShowNewInterviewForm] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -22,6 +23,23 @@ const MockArena: React.FC = () => {
     description: ''
   });
 
+  useEffect(() => {
+    fetchInterviews();
+  }, []);
+
+  const fetchInterviews = async () => {
+    try {
+      const response = await interviewsAPI.getAll();
+      if (response.data.success) {
+        setInterviews(response.data.interviews);
+      }
+    } catch (error) {
+      console.error('Error fetching interviews:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const pendingInterviews = interviews.filter(
     (interview) => interview.status === 'pending'
   );
@@ -30,46 +48,47 @@ const MockArena: React.FC = () => {
     (interview) => interview.status === 'accepted'
   );
 
-  const handleAcceptInterview = (id: string) => {
-    setInterviews(
-      interviews.map((interview) =>
-        interview.id === id ? { ...interview, status: 'accepted' } : interview
-      )
-    );
+  const handleAcceptInterview = async (id: string) => {
+    try {
+      const response = await interviewsAPI.updateStatus(id, 'accepted');
+      if (response.data.success) {
+        setInterviews(interviews.map(interview =>
+          interview.id === id ? response.data.interview : interview
+        ));
+      }
+    } catch (error) {
+      console.error('Error accepting interview:', error);
+    }
   };
 
-  const handleRejectInterview = (id: string) => {
-    setInterviews(
-      interviews.map((interview) =>
-        interview.id === id ? { ...interview, status: 'cancelled' } : interview
-      )
-    );
+  const handleRejectInterview = async (id: string) => {
+    try {
+      const response = await interviewsAPI.updateStatus(id, 'cancelled');
+      if (response.data.success) {
+        setInterviews(interviews.map(interview =>
+          interview.id === id ? response.data.interview : interview
+        ));
+      }
+    } catch (error) {
+      console.error('Error rejecting interview:', error);
+    }
   };
 
-  const handleCancelInterview = (id: string) => {
-    setInterviews(
-      interviews.map((interview) =>
-        interview.id === id ? { ...interview, status: 'cancelled' } : interview
-      )
-    );
+  const handleCancelInterview = async (id: string) => {
+    try {
+      const response = await interviewsAPI.updateStatus(id, 'cancelled');
+      if (response.data.success) {
+        setInterviews(interviews.map(interview =>
+          interview.id === id ? response.data.interview : interview
+        ));
+      }
+    } catch (error) {
+      console.error('Error cancelling interview:', error);
+    }
   };
 
   const handleJoinInterview = (id: string) => {
     navigate(`/interview/${id}`);
-  };
-
-  const isInterviewTimeNow = (scheduledAt: string) => {
-    const now = new Date();
-    const interviewTime = new Date(scheduledAt);
-    const timeDiff = Math.abs(now.getTime() - interviewTime.getTime());
-    return timeDiff <= 15 * 60 * 1000; // Within 15 minutes
-  };
-
-  const extractNameFromEmail = (email: string) => {
-    const name = email.split('@')[0];
-    return name.split('.').map(part => 
-      part.charAt(0).toUpperCase() + part.slice(1)
-    ).join(' ');
   };
 
   const handleSendInvite = async () => {
@@ -81,67 +100,53 @@ const MockArena: React.FC = () => {
     const extractedName = formData.name || extractNameFromEmail(formData.email);
     const scheduledDateTime = new Date(`${formData.date}T${formData.time}`);
     
-    // Create new interview
-    const newInterview: Interview = {
-      id: `interview_${Date.now()}`,
+    const createRequest: CreateInterviewRequest = {
       title: `Mock Interview - ${formData.topics || 'General'}`,
-      participant: extractedName,
+      participantEmail: formData.email,
+      participantName: extractedName,
       scheduledAt: scheduledDateTime.toISOString(),
       durationMinutes: formData.duration,
       description: formData.description || `Mock interview focusing on ${formData.topics || 'general programming concepts'}.`,
-      status: 'pending',
-      isIncoming: false,
-      topics: formData.topics.split(',').map(t => t.trim()).filter(t => t),
-      inviteeEmail: formData.email
+      topics: formData.topics ? formData.topics.split(',').map(t => t.trim()).filter(t => t) : [],
     };
 
-    // Simulate sending email
-    const emailBody = `
-Hello ${extractedName},
+    try {
+      const response = await interviewsAPI.create(createRequest);
+      if (response.data.success) {
+        setInterviews([...interviews, response.data.interview]);
+        
+        // Reset form
+        setFormData({
+          email: '',
+          date: '',
+          time: '',
+          topics: '',
+          name: '',
+          duration: 60,
+          description: ''
+        });
+        setShowNewInterviewForm(false);
 
-You've been invited to a mock interview session!
+        alert(`Interview invitation created successfully!\n\nInterview scheduled for ${new Date(scheduledDateTime).toLocaleString()}`);
+      }
+    } catch (error) {
+      console.error('Error creating interview:', error);
+      alert('Failed to create interview. Please try again.');
+    }
+  };
 
-📅 Date: ${new Date(formData.date).toLocaleDateString('en-US', { 
-  weekday: 'long', 
-  year: 'numeric', 
-  month: 'long', 
-  day: 'numeric' 
-})}
-⏰ Time: ${new Date(`2000-01-01T${formData.time}`).toLocaleTimeString('en-US', {
-  hour: '2-digit',
-  minute: '2-digit'
-})}
-⏱️ Duration: ${formData.duration} minutes
-📚 Topics: ${formData.topics || 'General Programming'}
+  const extractNameFromEmail = (email: string) => {
+    const name = email.split('@')[0];
+    return name.split('.').map(part => 
+      part.charAt(0).toUpperCase() + part.slice(1)
+    ).join(' ');
+  };
 
-${formData.description ? `Description: ${formData.description}` : ''}
-
-Click the link below to accept this invitation:
-https://deepcode.dev/invite/${newInterview.id}
-
-Best regards,
-CodePro Team
-    `;
-
-    console.log('Email sent to:', formData.email);
-    console.log('Email body:', emailBody);
-
-    // Add interview to list
-    setInterviews([...interviews, newInterview]);
-    
-    // Reset form
-    setFormData({
-      email: '',
-      date: '',
-      time: '',
-      topics: '',
-      name: '',
-      duration: 60,
-      description: ''
-    });
-    setShowNewInterviewForm(false);
-
-    alert(`Interview invitation sent to ${formData.email}!\n\nInterview scheduled for ${new Date(scheduledDateTime).toLocaleString()}`);
+  const isInterviewTimeNow = (scheduledAt: string) => {
+    const now = new Date();
+    const interviewTime = new Date(scheduledAt);
+    const timeDiff = Math.abs(now.getTime() - interviewTime.getTime());
+    return timeDiff <= 15 * 60 * 1000; // Within 15 minutes
   };
 
   const formatDateTime = (dateTime: string) => {
@@ -158,6 +163,10 @@ CodePro Team
       })
     };
   };
+
+  if (loading) {
+    return <LoadingSpinner className="h-64" />;
+  }
 
   return (
     <div className="space-y-8">
@@ -307,7 +316,7 @@ CodePro Team
                 icon={<Send size={16} />}
                 className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
               >
-                Send Invitation
+                Create Interview
               </Button>
             </div>
           </CardContent>
@@ -326,7 +335,10 @@ CodePro Team
               {pendingInterviews.map((interview) => (
                 <InterviewCard
                   key={interview.id}
-                  interview={interview}
+                  interview={{
+                    ...interview,
+                    participant: interview.participantName || interview.participantEmail || 'Unknown',
+                  }}
                   onAccept={handleAcceptInterview}
                   onReject={handleRejectInterview}
                 />
@@ -362,7 +374,7 @@ CodePro Team
                       <div className="space-y-3 mb-6">
                         <div className="flex items-center text-gray-600 dark:text-gray-300">
                           <User className="h-4 w-4 mr-2" />
-                          <span className="text-sm">{interview.participant}</span>
+                          <span className="text-sm">{interview.participantName || interview.participantEmail}</span>
                         </div>
                         <div className="flex items-center text-gray-600 dark:text-gray-300">
                           <Calendar className="h-4 w-4 mr-2" />
@@ -383,9 +395,11 @@ CodePro Team
                         )}
                       </div>
                       
-                      <div className="text-sm text-gray-600 dark:text-gray-300 mb-6">
-                        <p>{interview.description}</p>
-                      </div>
+                      {interview.description && (
+                        <div className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+                          <p>{interview.description}</p>
+                        </div>
+                      )}
                       
                       <div className="flex space-x-2">
                         {canJoinNow ? (

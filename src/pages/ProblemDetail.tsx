@@ -5,16 +5,37 @@ import CodeEditor from '../components/dsa/CodeEditor';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
-import { mockProblems } from '../data/mockData';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { problemsAPI, type Problem } from '../services/api';
 
 const ProblemDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<'problem' | 'solution'>('problem');
-  const [problem, setProblem] = useState(mockProblems.find(p => p.id === id));
+  const [problem, setProblem] = useState<Problem | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setProblem(mockProblems.find(p => p.id === id));
+    const fetchProblem = async () => {
+      if (!id) return;
+      
+      try {
+        const response = await problemsAPI.getById(id);
+        if (response.data.success) {
+          setProblem(response.data.problem);
+        }
+      } catch (error) {
+        console.error('Error fetching problem:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProblem();
   }, [id]);
+
+  if (loading) {
+    return <LoadingSpinner className="h-64" />;
+  }
 
   if (!problem) {
     return (
@@ -90,7 +111,7 @@ const ProblemDetail: React.FC = () => {
                     <h2 className="text-xl font-semibold mb-4">Problem Statement</h2>
                     <p>{problem.description}</p>
                     
-                    {problem.examples && (
+                    {problem.examples && problem.examples.length > 0 && (
                       <div className="mt-6">
                         <h3 className="text-lg font-semibold mb-2">Examples</h3>
                         <div className="space-y-4">
@@ -113,7 +134,7 @@ const ProblemDetail: React.FC = () => {
                       </div>
                     )}
                     
-                    {problem.constraints && (
+                    {problem.constraints && problem.constraints.length > 0 && (
                       <div className="mt-6">
                         <h3 className="text-lg font-semibold mb-2">Constraints</h3>
                         <ul className="list-disc list-inside">
@@ -146,12 +167,14 @@ const ProblemDetail: React.FC = () => {
                   <div className="prose dark:prose-invert max-w-none">
                     <p>{problem.solutionExplanation || "Detailed explanation of the solution approach."}</p>
                   </div>
-                  <div className="mt-6">
-                    <h3 className="text-lg font-semibold mb-2">Solution Code</h3>
-                    <div className="bg-gray-900 text-gray-50 font-mono text-sm p-4 rounded-lg overflow-auto">
-                      <pre>{problem.solutionCode || "// Solution code will be shown here"}</pre>
+                  {problem.solutionCode && (
+                    <div className="mt-6">
+                      <h3 className="text-lg font-semibold mb-2">Solution Code</h3>
+                      <div className="bg-gray-900 text-gray-50 font-mono text-sm p-4 rounded-lg overflow-auto">
+                        <pre>{problem.solutionCode}</pre>
+                      </div>
                     </div>
-                  </div>
+                  )}
                   <div className="mt-6">
                     <h3 className="text-lg font-semibold mb-2">Complexity Analysis</h3>
                     <div className="space-y-2">

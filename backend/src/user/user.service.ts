@@ -1,54 +1,87 @@
 import { Injectable } from '@nestjs/common';
-import { User } from './interfaces/user.interface';
+import { eq } from 'drizzle-orm';
+import { DatabaseService } from '../database/database.service';
+import { users, type User, type NewUser } from '../database/schema';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class UserService {
-  private users: User[] = []; // In-memory store for demo
+  constructor(private readonly databaseService: DatabaseService) {}
 
-  async createOrUpdateUser(userData: Partial<User>): Promise<User> {
-    const existingUserIndex = this.users.findIndex(
-      user => user.googleId === userData.googleId
-    );
+  async createOrUpdateUser(userData: Partial<NewUser>): Promise<User> {
+    const db = this.databaseService.db;
 
-    if (existingUserIndex >= 0) {
+    // Check if user exists
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.googleId, userData.googleId!))
+      .limit(1);
+
+    if (existingUser.length > 0) {
       // Update existing user
-      this.users[existingUserIndex] = {
-        ...this.users[existingUserIndex],
-        ...userData,
-        updatedAt: new Date(),
-      };
-      return this.users[existingUserIndex];
+      const updatedUser = await db
+        .update(users)
+        .set({
+          ...userData,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(users.googleId, userData.googleId!))
+        .returning();
+
+      return updatedUser[0];
     } else {
       // Create new user
-      const newUser: User = {
-        id: this.generateId(),
-        googleId: userData.googleId,
-        email: userData.email,
-        name: userData.name,
+      const newUser: NewUser = {
+        id: uuidv4(),
+        googleId: userData.googleId!,
+        email: userData.email!,
+        name: userData.name!,
         picture: userData.picture,
         accessToken: userData.accessToken,
         refreshToken: userData.refreshToken,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
-      this.users.push(newUser);
-      return newUser;
+
+      const createdUser = await db.insert(users).values(newUser).returning();
+      return createdUser[0];
     }
   }
 
   async findByGoogleId(googleId: string): Promise<User | null> {
-    return this.users.find(user => user.googleId === googleId) || null;
+    const db = this.databaseService.db;
+    
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.googleId, googleId))
+      .limit(1);
+
+    return result.length > 0 ? result[0] : null;
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.users.find(user => user.id === id) || null;
+    const db = this.databaseService.db;
+    
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+
+    return result.length > 0 ? result[0] : null;
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.users.find(user => user.email === email) || null;
-  }
+    const db = this.databaseService.db;
+    
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
 
-  private generateId(): string {
-    return Math.random().toString(36).substr(2, 9);
+    return result.length > 0 ? result[0] : null;
   }
 }

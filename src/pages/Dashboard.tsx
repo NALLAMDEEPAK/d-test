@@ -1,13 +1,49 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { mockProblems } from '../data/mockData';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { problemsAPI } from '../services/api';
 
 const Dashboard: React.FC = () => {
-  // Extract unique topics from mock problems
-  const topics = Array.from(new Set(mockProblems.flatMap(problem => problem.topics)));
+  const [topics, setTopics] = useState<string[]>([]);
+  const [problems, setProblems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [topicsResponse, problemsResponse] = await Promise.all([
+          problemsAPI.getTopics(),
+          problemsAPI.getAll()
+        ]);
+
+        if (topicsResponse.data.success) {
+          setTopics(topicsResponse.data.topics);
+        }
+
+        if (problemsResponse.data.success) {
+          setProblems(problemsResponse.data.problems);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const filteredTopics = topics.filter(topic =>
+    topic.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) {
+    return <LoadingSpinner className="h-64" />;
+  }
 
   return (
     <div className="space-y-6">
@@ -20,14 +56,16 @@ const Dashboard: React.FC = () => {
           <input
             type="text"
             placeholder="Search topics..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 pr-4 py-2 w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {topics.map((topic) => {
-          const topicProblems = mockProblems.filter(p => p.topics.includes(topic));
+        {filteredTopics.map((topic) => {
+          const topicProblems = problems.filter(p => p.topics.includes(topic));
           const easy = topicProblems.filter(p => p.difficulty === 'Easy').length;
           const medium = topicProblems.filter(p => p.difficulty === 'Medium').length;
           const hard = topicProblems.filter(p => p.difficulty === 'Hard').length;
@@ -58,6 +96,17 @@ const Dashboard: React.FC = () => {
           );
         })}
       </div>
+
+      {filteredTopics.length === 0 && (
+        <div className="text-center py-12">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            No topics found
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            Try adjusting your search term
+          </p>
+        </div>
+      )}
     </div>
   );
 };

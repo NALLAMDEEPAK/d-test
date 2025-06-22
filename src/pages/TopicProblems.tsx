@@ -1,26 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Filter, SlidersHorizontal } from 'lucide-react';
 import ProblemCard from '../components/dsa/ProblemCard';
 import Button from '../components/ui/Button';
-import { mockProblems } from '../data/mockData';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { problemsAPI, type Problem } from '../services/api';
 
 const TopicProblems: React.FC = () => {
   const { topic } = useParams<{ topic: string }>();
   const decodedTopic = decodeURIComponent(topic || '');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
+  const [problems, setProblems] = useState<Problem[]>([]);
+  const [loading, setLoading] = useState(true);
   
-  const problems = mockProblems.filter(problem => 
-    problem.topics.includes(decodedTopic) && 
-    (selectedDifficulty === 'all' || problem.difficulty === selectedDifficulty)
+  useEffect(() => {
+    const fetchProblems = async () => {
+      try {
+        const response = await problemsAPI.getByTopic(decodedTopic);
+        if (response.data.success) {
+          setProblems(response.data.problems);
+        }
+      } catch (error) {
+        console.error('Error fetching problems:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProblems();
+  }, [decodedTopic]);
+
+  const filteredProblems = problems.filter(problem => 
+    selectedDifficulty === 'all' || problem.difficulty === selectedDifficulty
   );
 
-  const totalProblems = mockProblems.filter(problem => problem.topics.includes(decodedTopic)).length;
   const difficultyCount = {
-    Easy: mockProblems.filter(p => p.topics.includes(decodedTopic) && p.difficulty === 'Easy').length,
-    Medium: mockProblems.filter(p => p.topics.includes(decodedTopic) && p.difficulty === 'Medium').length,
-    Hard: mockProblems.filter(p => p.topics.includes(decodedTopic) && p.difficulty === 'Hard').length,
+    Easy: problems.filter(p => p.difficulty === 'Easy').length,
+    Medium: problems.filter(p => p.difficulty === 'Medium').length,
+    Hard: problems.filter(p => p.difficulty === 'Hard').length,
   };
+
+  if (loading) {
+    return <LoadingSpinner className="h-64" />;
+  }
 
   return (
     <div className="space-y-8">
@@ -35,7 +57,7 @@ const TopicProblems: React.FC = () => {
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{decodedTopic}</h1>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {totalProblems} problems available
+                {problems.length} problems available
               </p>
             </div>
           </div>
@@ -72,10 +94,10 @@ const TopicProblems: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {problems.map(problem => (
+        {filteredProblems.map(problem => (
           <ProblemCard key={problem.id} problem={problem} />
         ))}
-        {problems.length === 0 && (
+        {filteredProblems.length === 0 && (
           <div className="col-span-full flex flex-col items-center justify-center py-12 px-4">
             <div className="bg-gray-100 dark:bg-gray-800 rounded-full p-4 mb-4">
               <Filter size={24} className="text-gray-400 dark:text-gray-500" />
